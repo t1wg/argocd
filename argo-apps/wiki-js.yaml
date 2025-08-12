@@ -1,12 +1,8 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  creationTimestamp: "2025-08-12T18:47:50Z"
-  generation: 36
   name: wiki-js
   namespace: argocd
-  resourceVersion: "3129757"
-  uid: 57d9a82e-48a7-463e-9fb1-b6a4200f7207
 spec:
   destination:
     namespace: wiki-js
