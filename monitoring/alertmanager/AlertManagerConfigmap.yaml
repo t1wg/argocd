@@ -1,0 +1,24 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  config.yml: |-
+    global:
+    templates:
+    - '/etc/alertmanager/*.tmpl'
+    route:
+      routes:
+        - receiver: slack-sa-25
+        # Send severity=slack alerts to slack.
+          match:
+            severity: slack
+          group_wait: 10s
+          repeat_interval: 1m
+ 
+    receivers:
+    - name: slack-sa-25
+      slack_configs:
+      - api_url: https://hooks.slack.com/services/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
+        channel: '#test-notifications-1'
