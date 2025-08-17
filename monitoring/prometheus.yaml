@@ -253,7 +253,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: prometheus.k8s-11.sa
+    - host: prometheus.k8s-9.sa
       http:
         paths:
           - path: /
