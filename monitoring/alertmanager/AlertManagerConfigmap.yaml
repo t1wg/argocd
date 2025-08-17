@@ -12,13 +12,6 @@ data:
       receiver: slack-sa-25
       group_wait: 10s
       repeat_interval: 1m
-      routes:
-        - receiver: slack-sa-25
-        # Send severity=slack alerts to slack.
-          match:
-            severity: slack
-          group_wait: 10s
-          repeat_interval: 1m
  
     receivers:
     - name: slack-sa-25
