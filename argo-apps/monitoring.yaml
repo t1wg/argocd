@@ -12,6 +12,8 @@ spec:
     path: monitoring
     repoURL: https://github.com/t1wg/argocd.git
     targetRevision: HEAD
+    directory:
+      recurse: true
   syncPolicy:
     automated:
       prune: true
