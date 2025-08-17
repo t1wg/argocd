@@ -10,9 +10,6 @@ data:
     - '/etc/alertmanager/*.tmpl'
     route:
       receiver: slack-sa-25
-        # Send severity=slack alerts to slack.
-      match:
-        severity: slack
       group_wait: 10s
       repeat_interval: 1m
       routes:
