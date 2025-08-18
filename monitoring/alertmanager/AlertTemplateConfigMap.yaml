@@ -8,5 +8,4 @@ data:
   default.tmpl: |
     {{ define "slack.devops.text" }}
     {{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}
-    {{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}
     {{end}}
