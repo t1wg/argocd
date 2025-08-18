@@ -7,5 +7,5 @@ metadata:
 data:
   default.tmpl: |
     {{ define "slack.devops.text" }}
-    {{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}
+    {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
     {{end}}
