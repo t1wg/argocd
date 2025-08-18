@@ -44,15 +44,6 @@ metadata:
 data:
   prometheus.rules: |-
     groups:
-    - name: devopscube demo alert
-      rules:
-      - alert: High Pod Memory
-        expr: sum(container_memory_usage_bytes) > 1
-        for: 1m
-        labels:
-          severity: slack
-        annotations:
-          summary: High Memory Usage
     - name: high pod cpu usage
       rules:
       - alert: High Pod cpu usage
