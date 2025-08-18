@@ -16,6 +16,6 @@ data:
     receivers:
     - name: slack-sa-25
       slack_configs:
-      - api_url: "https://hooks.slack.com/services/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"
-        channel: '#test-notifications-1'
+      - api_url: "https://hooks.slack.com/services/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"
+        channel: '#integration'
 
