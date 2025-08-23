@@ -28,8 +28,6 @@ jobs:
       matrix:
         directory: ${{ fromJson(needs.discover-directories.outputs.matrix) }}
       fail-fast: false
-    outputs:
-      matrix_results: ${{ steps.collect-results.outputs.matrix_results }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,39 +44,14 @@ jobs:
             -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}/{{ .ResourceKind }}_{{ .ResourceAPIVersion }}.json"
             ${{ matrix.directory }}/
             
-      - name: Set validation result
-        id: set-result
-        run: |
-          if [ ${{ steps.kubeconform.outcome }} == 'success' ]; then
-            echo "result=success" >> $GITHUB_OUTPUT
-            echo "message=✅ Directory '${{ matrix.directory }}' validated successfully" >> $GITHUB_OUTPUT
-          else
-            echo "result=failure" >> $GITHUB_OUTPUT
-            echo "message=❌ Directory '${{ matrix.directory }}' validation failed" >> $GITHUB_OUTPUT
-          fi
-            
-      - name: Collect results for notifications
-        id: collect-results
-        run: |
-          # Create a JSON object with directory, result, and message
-          result_json="{\"directory\": \"${{ matrix.directory }}\", \"result\": \"${{ steps.set-result.outputs.result }}\", \"message\": \"${{ steps.set-result.outputs.message }}\"}"
-          echo "matrix_results=$result_json" >> $GITHUB_OUTPUT
-
-  send-individual-notifications:
-    needs: [validate-manifests, test-slack-webhook]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        result: ${{ fromJson(needs.validate-manifests.outputs.matrix_results) }}
-    steps:
-      - name: Send notification for ${{ matrix.result.directory }}
+      - name: Send individual Slack notification for ${{ matrix.directory }}
+        if: always()
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_CHANNEL: test-notifications
-          SLACK_COLOR: ${{ matrix.result.result == 'success' && 'good' || 'danger' }}
-          SLACK_ICON: https://github.com/kubernetes.png?size=48
-          SLACK_MESSAGE: ${{ matrix.result.message }}
-          SLACK_TITLE: "${{ matrix.result.result == 'success' && 'Validation Passed' || 'Validation Failed' }} - ${{ matrix.result.directory }}"
+          SLACK_COLOR: ${{ steps.kubeconform.outcome == 'success' && 'good' || 'danger' }}
+          SLACK_MESSAGE: ${{ steps.kubeconform.outcome == 'success' && '✅' || '❌' }} Directory '${{ matrix.directory }}' validation ${{ steps.kubeconform.outcome }}
+          SLACK_TITLE: "${{ steps.kubeconform.outcome == 'success' && 'Validation Passed' || 'Validation Failed' }} - ${{ matrix.directory }}"
           SLACK_USERNAME: kubeconform-bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true
@@ -93,20 +66,19 @@ jobs:
         continue-on-error: true
 
   notify-summary:
-    needs: [validate-manifests, send-individual-notifications, test-slack-webhook]
+    needs: [validate-manifests, test-slack-webhook]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Prepare summary message
-        id: prepare-summary
         run: |
-          # Count successes and failures
+          # Count successful and failed jobs
           success_count=0
           failure_count=0
           
-          # This would need a more complex implementation to parse all matrix results
-          # For simplicity, we'll use a basic summary
-          echo "MESSAGE=📊 Validation Summary for ${{ github.repository }}\n• Individual notifications sent for each directory" >> $GITHUB_ENV
+          # This would require more complex logic to parse individual results
+          # For now, just send a simple summary
+          echo "MESSAGE=📊 Validation process completed for ${{ github.repository }}\n• Individual notifications sent for each directory" >> $GITHUB_ENV
           echo "COLOR=good" >> $GITHUB_ENV
           
       - name: Send summary notification
@@ -114,9 +86,8 @@ jobs:
         env:
           SLACK_CHANNEL: test-notifications
           SLACK_COLOR: ${{ env.COLOR }}
-          SLACK_ICON: https://github.com/kubernetes.png?size=48
           SLACK_MESSAGE: ${{ env.MESSAGE }}
-          SLACK_TITLE: Validation Summary
+          SLACK_TITLE: Validation Process Complete
           SLACK_USERNAME: kubeconform-bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true
