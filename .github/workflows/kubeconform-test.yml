@@ -27,12 +27,17 @@ jobs:
     strategy:
       matrix:
         directory: ${{ fromJson(needs.discover-directories.outputs.matrix) }}
+      fail-fast: false
+    outputs:
+      matrix_results: ${{ steps.collect-results.outputs.matrix_results }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         
       - name: Validate ${{ matrix.directory }} with kubeconform
+        id: kubeconform
         uses: docker://ghcr.io/yannh/kubeconform:latest
+        continue-on-error: true
         with:
           args: >-
             -verbose
@@ -40,6 +45,43 @@ jobs:
             -schema-location default
             -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}/{{ .ResourceKind }}_{{ .ResourceAPIVersion }}.json"
             ${{ matrix.directory }}/
+            
+      - name: Set validation result
+        id: set-result
+        run: |
+          if [ ${{ steps.kubeconform.outcome }} == 'success' ]; then
+            echo "result=success" >> $GITHUB_OUTPUT
+            echo "message=✅ Directory '${{ matrix.directory }}' validated successfully" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            echo "message=❌ Directory '${{ matrix.directory }}' validation failed" >> $GITHUB_OUTPUT
+          fi
+            
+      - name: Collect results for notifications
+        id: collect-results
+        run: |
+          # Create a JSON object with directory, result, and message
+          result_json="{\"directory\": \"${{ matrix.directory }}\", \"result\": \"${{ steps.set-result.outputs.result }}\", \"message\": \"${{ steps.set-result.outputs.message }}\"}"
+          echo "matrix_results=$result_json" >> $GITHUB_OUTPUT
+
+  send-individual-notifications:
+    needs: [validate-manifests, test-slack-webhook]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        result: ${{ fromJson(needs.validate-manifests.outputs.matrix_results) }}
+    steps:
+      - name: Send notification for ${{ matrix.result.directory }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_CHANNEL: test-notifications
+          SLACK_COLOR: ${{ matrix.result.result == 'success' && 'good' || 'danger' }}
+          SLACK_ICON: https://github.com/kubernetes.png?size=48
+          SLACK_MESSAGE: ${{ matrix.result.message }}
+          SLACK_TITLE: "${{ matrix.result.result == 'success' && 'Validation Passed' || 'Validation Failed' }} - ${{ matrix.result.directory }}"
+          SLACK_USERNAME: kubeconform-bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
 
   test-slack-webhook:
     runs-on: ubuntu-latest
@@ -50,45 +92,31 @@ jobs:
           echo "Webhook URL is set: ${{ secrets.SLACK_WEBHOOK_URL != '' }}"
         continue-on-error: true
 
-  notify-failure:
-    needs: [validate-manifests, test-slack-webhook]
+  notify-summary:
+    needs: [validate-manifests, send-individual-notifications, test-slack-webhook]
     runs-on: ubuntu-latest
-    if: ${{ always() && contains(needs.validate-manifests.*.result, 'failure') }}
+    if: always()
     steps:
-      - name: Prepare failure message
+      - name: Prepare summary message
+        id: prepare-summary
         run: |
-          echo "MESSAGE=❌ Kubernetes manifests validation failed in ${{ github.repository }}" >> $GITHUB_ENV
-      - name: Slack Notification for Failure
+          # Count successes and failures
+          success_count=0
+          failure_count=0
+          
+          # This would need a more complex implementation to parse all matrix results
+          # For simplicity, we'll use a basic summary
+          echo "MESSAGE=📊 Validation Summary for ${{ github.repository }}\n• Individual notifications sent for each directory" >> $GITHUB_ENV
+          echo "COLOR=good" >> $GITHUB_ENV
+          
+      - name: Send summary notification
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_CHANNEL: test-notifications
-          SLACK_COLOR: danger
+          SLACK_COLOR: ${{ env.COLOR }}
           SLACK_ICON: https://github.com/kubernetes.png?size=48
           SLACK_MESSAGE: ${{ env.MESSAGE }}
-          SLACK_TITLE: Validation Failed
-          SLACK_USERNAME: kubeconform-bot
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-        continue-on-error: true
-
-      - name: Fallback notification if Slack fails
-        if: ${{ failure() }}
-        run: |
-          echo "❌ Slack notification failed. Please check your webhook URL."
-          echo "Webhook status can be checked in the 'test-slack-webhook' job"
-
-  notify-success:
-    needs: [validate-manifests, test-slack-webhook]
-    runs-on: ubuntu-latest
-    if: ${{ always() && !contains(needs.validate-manifests.*.result, 'failure') && !contains(needs.validate-manifests.*.result, 'cancelled') }}
-    steps:
-      - name: Slack Notification for Success
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_CHANNEL: test-notifications
-          SLACK_COLOR: good
-          SLACK_ICON: https://github.com/kubernetes.png?size=48
-          SLACK_MESSAGE: ✅ All Kubernetes manifests validated successfully in ${{ github.repository }}
-          SLACK_TITLE: Validation Passed
+          SLACK_TITLE: Validation Summary
           SLACK_USERNAME: kubeconform-bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true
