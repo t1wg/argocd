@@ -1,0 +1,13 @@
+name: Validate Kubernetes manifests
+on: [push, pull_request]
+jobs:
+  kubeconform:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Kubeconform
+      uses: bmuschko/setup-kubeconform@v1
+    
+    - name: Validate manifests
+      run: kubeconform -summary -verbose .
