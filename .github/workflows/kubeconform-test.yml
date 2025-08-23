@@ -57,10 +57,9 @@ jobs:
       - name: Check overall status
         id: check-status
         run: |
-          # Get all needed jobs results
-          results=${{ toJSON(needs) }}
+          # Convert needs context to JSON string and check for any failures
+          results='${{ toJSON(needs) }}'
           
-          # Check if any job failed
           if echo "$results" | grep -q '"result":"failure"'; then
             echo "status=failure" >> $GITHUB_OUTPUT
             echo "Overall status: FAILURE"
