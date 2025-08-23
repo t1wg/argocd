@@ -40,16 +40,24 @@ jobs:
             -schema-location default
             -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}/{{ .ResourceKind }}_{{ .ResourceAPIVersion }}.json"
             ${{ matrix.directory }}/
-            
+
+  test-slack-webhook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Slack webhook
+        run: |
+          echo "Testing Slack webhook configuration"
+          echo "Webhook URL is set: ${{ secrets.SLACK_WEBHOOK_URL != '' }}"
+        continue-on-error: true
+
   notify-failure:
-    needs: [validate-manifests]
+    needs: [validate-manifests, test-slack-webhook]
     runs-on: ubuntu-latest
     if: ${{ always() && contains(needs.validate-manifests.*.result, 'failure') }}
     steps:
       - name: Prepare failure message
         run: |
           echo "MESSAGE=❌ Kubernetes manifests validation failed in ${{ github.repository }}" >> $GITHUB_ENV
-
       - name: Slack Notification for Failure
         uses: rtCamp/action-slack-notify@v2
         env:
@@ -69,9 +77,9 @@ jobs:
           echo "Webhook status can be checked in the 'test-slack-webhook' job"
 
   notify-success:
-    needs: [validate-manifests]
+    needs: [validate-manifests, test-slack-webhook]
     runs-on: ubuntu-latest
-    if: ${{ always() && !contains(needs.validate-manifests.*.result, 'failure') && needs.validate-manifests.result == 'success' }}
+    if: ${{ always() && !contains(needs.validate-manifests.*.result, 'failure') && !contains(needs.validate-manifests.*.result, 'cancelled') }}
     steps:
       - name: Slack Notification for Success
         uses: rtCamp/action-slack-notify@v2
