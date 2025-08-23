@@ -1,18 +1,43 @@
-name: kubeconform
-on: push
+name: kubeconform Matrix Validation
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
 jobs:
-  kubeconform:
+  discover-directories:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        
+      - name: Find all directories
+        id: set-matrix
+        run: |
+          # Find all directories (excluding hidden ones and specific directories)
+          dirs=$(find . -maxdepth 1 -type d -not -path '*/\.*' -not -path '\.' | sed 's|^\./||' | grep -v -E '(^\.git$|^\.github$)')
+          # Convert to JSON array for matrix
+          matrix=$(echo "$dirs" | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+          echo "Found directories: $matrix"
 
-      - name: Validate Kubernetes manifests with kubeconform
+  validate-manifests:
+    needs: discover-directories
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        directory: ${{ fromJson(needs.discover-directories.outputs.matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Validate ${{ matrix.directory }} with kubeconform
         uses: docker://ghcr.io/yannh/kubeconform:latest
         with:
           args: >-
             -verbose
             -output json
-            -schema-location default
-            -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}/{{ .ResourceKind }}_{{ .ResourceAPIVersion }}.json"
-            argo-apps/
+            ${{ matrix.directory }}/
