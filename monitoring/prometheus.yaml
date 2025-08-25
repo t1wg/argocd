@@ -42,6 +42,17 @@ metadata:
     name: prometheus-server-conf
   namespace: monitoring
 data:
+  prometheus.rules: |-
+    groups:
+    - name: high pod cpu usage
+      rules:
+      - alert: High Pod cpu usage
+        expr: sum by (pod) (kube_pod_container_resource_requests{resource="cpu"}) >= sum by (pod) (kube_pod_container_resource_limits{resource="cpu"})
+        for: 1m
+        labels:
+          severity: slack
+        annotations:
+          summary: 'Instance {{ $labels.pod }} has high cpu usage'
     scrape_configs:
       - job_name: 'node-exporter'
         kubernetes_sd_configs:
