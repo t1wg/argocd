@@ -13,5 +13,5 @@ jobs:
   run-jenkins-job:
     runs-on: ubuntu-latest
     steps: 
-      - run: apt update & apt install curl
+      - run: sudo apt update & sudo apt install curl
       - run: curl -X POST -u "${{ secrets.API_TOKEN }}" -d "token=${{ secrets.BUILD_TOKEN }}" -d "TESTED_USER=${{ inputs.user }}" http://jenkins.k8s-9.sa/job/test-user/buildWithParameters
