@@ -1,0 +1,17 @@
+on:
+  workflow_dispatch:
+    inputs:
+      user: 
+        description: "Requested user"
+        required: true
+env:
+  fqdn: jenkins.k8s-9.sa
+  ip: 178.124.206.53
+  jenkins_url: http://jenkins.k8s-9.sa/job/test-user//buildWithParameters
+
+jobs:
+  run-jenkins-job:
+    runs-on: ubuntu-latest
+    steps: 
+      - run: apt update & apt install curl
+      - run: curl -X POST -u "${{ secrets.API_TOKEN }}" -d "token=${{ secrets.BUILD_TOKEN }}" -d "TESTED_USER=${{ inputs.user }}" http://jenkins.k8s-9.sa/job/test-user/buildWithParameters
